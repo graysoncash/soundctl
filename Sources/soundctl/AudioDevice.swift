@@ -6,22 +6,12 @@ struct AudioDevice: Codable {
     let name: String
     let uid: String
     let type: AudioDeviceType
-    let macAddress: String?
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case name
-        case uid
-        case type
-        case macAddress = "mac_address"
-    }
 
     init(id: AudioDeviceID, name: String, uid: String, type: AudioDeviceType) {
         self.id = id
         self.name = name
         self.uid = uid
         self.type = type
-        self.macAddress = Self.extractMacAddress(from: uid)
     }
 
     static func extractMacAddress(from uid: String) -> String? {
@@ -38,12 +28,12 @@ struct AudioDevice: Codable {
     func format(as outputFormat: OutputFormat) -> String {
         switch outputFormat {
         case .human:
-            if let mac = macAddress {
+            if let mac = Self.extractMacAddress(from: uid) {
                 return "\(name) (\(mac))"
             }
             return name
         case .cli:
-            let mac = macAddress ?? ""
+            let mac = Self.extractMacAddress(from: uid) ?? ""
             return "\(name),\(type),\(id),\(uid),\(mac)"
         case .json:
             if let data = try? JSONEncoder().encode(self),

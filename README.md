@@ -59,7 +59,7 @@ soundctl current --format json
 
 Output:
 ```json
-{"id":108,"type":"output","name":"Someone's AirPods Max","mac_address":"XX-XX-XX-XX-XX-XX","uid":"XX-XX-XX-XX-XX-XX:output"}
+{"id":108,"type":"output","name":"Someone's AirPods Max","uid":"XX-XX-XX-XX-XX-XX:output"}
 ```
 
 ### List all output devices
@@ -138,8 +138,7 @@ This is useful on a hotkey, e.g., to mute your Teams or Zoom input.
 ### Understanding IDs
 
 - **id**: Numeric identifier assigned by macOS at runtime. Can change between reboots or reconnections.
-- **uid**: Persistent unique identifier string. For Bluetooth devices, includes the MAC address. This is the reliable identifier.
-- **mac_address**: Extracted MAC address for Bluetooth devices (shown in parentheses in human format). Will be `null` for built-in devices.
+- **uid**: Persistent unique identifier string (the MAC address for Bluetooth devices). This is the reliable identifier for matching devices.
 
 ## Configuration
 
