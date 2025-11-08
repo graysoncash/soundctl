@@ -16,6 +16,7 @@ struct SoundCtl: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "soundctl",
         abstract: "A command-line utility to control sound devices on macOS",
+        version: version,
         subcommands: [Set.self, List.self, Current.self, Next.self, Mute.self],
         defaultSubcommand: Current.self
     )

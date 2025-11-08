@@ -1,8 +1,11 @@
-.PHONY: build install uninstall clean release update-formula version
+.PHONY: build install uninstall clean release update-formula version generate-version
 
 VERSION := $(shell cat VERSION)
 
-build:  # Build the binary
+generate-version:  # Generate Version.swift from VERSION file
+	@./scripts/generate-version.sh
+
+build: generate-version  # Build the binary
 	swift build -c release
 
 install: build  # Install the binary to /usr/local/bin

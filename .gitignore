@@ -26,6 +26,9 @@ playground.xcworkspace
 build/
 dist/
 
+# Auto-generated files
+Sources/soundctl/Version.swift
+
 # macOS
 .DS_Store
 .AppleDouble
