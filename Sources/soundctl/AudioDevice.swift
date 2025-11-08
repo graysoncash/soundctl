@@ -15,7 +15,7 @@ struct AudioDevice: Codable {
     }
 
     static func extractMacAddress(from uid: String) -> String? {
-        let macPattern = #"([0-9A-Fa-f]{2}(?:-[0-9A-Fa-f]{2}){5})"#
+        let macPattern = #"([0-9A-Fa-f]{2}(?:[:\-.][0-9A-Fa-f]{2}){5})"#
         guard let regex = try? NSRegularExpression(pattern: macPattern),
             let match = regex.firstMatch(in: uid, range: NSRange(uid.startIndex..., in: uid)),
             let range = Range(match.range, in: uid)

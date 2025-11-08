@@ -44,7 +44,8 @@ struct Set: ParsableCommand {
 
         // Try MAC address format first
         if isMacAddressFormat(identifier) {
-            if let device = try? AudioManager.findDevice(byUID: identifier, type: type) {
+            let normalizedMac = normalizeMacAddress(identifier)
+            if let device = try? AudioManager.findDevice(byUID: normalizedMac, type: type) {
                 try AudioManager.setDevice(device.id, type: type)
                 print("\(type.rawValue) audio device set to \"\(device.name)\"")
                 return
@@ -67,8 +68,13 @@ struct Set: ParsableCommand {
     }
 
     func isMacAddressFormat(_ string: String) -> Bool {
-        let macPattern = #"^[0-9A-Fa-f]{2}([:-][0-9A-Fa-f]{2}){5}$"#
+        let macPattern = #"^[0-9A-Fa-f]{2}([:\-.][0-9A-Fa-f]{2}){5}$"#
         return string.range(of: macPattern, options: .regularExpression) != nil
+    }
+
+    func normalizeMacAddress(_ macAddress: String) -> String {
+        return macAddress.replacingOccurrences(of: ":", with: "-")
+            .replacingOccurrences(of: ".", with: "-")
     }
 }
 
