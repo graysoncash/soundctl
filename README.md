@@ -10,11 +10,24 @@ This is a command-line utility only and has no graphical user interface.
 
 ## Installation
 
+### Homebrew
+
+```bash
+brew tap graysoncash/soundctl
+brew install soundctl
+```
+
 ### Building from Source
 
 ```bash
 swift build -c release
 cp .build/release/soundctl /usr/local/bin/
+```
+
+Or use the Makefile:
+
+```bash
+make install
 ```
 
 ## Usage
