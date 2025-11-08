@@ -1,4 +1,4 @@
-# soundctl
+# 🔊 soundctl
 
 A command-line utility to control sound devices on macOS, written in Swift.
 
