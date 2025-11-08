@@ -48,7 +48,7 @@ soundctl
 
 Output:
 ```
-Grayson's AirPods Max (90-62-3F-93-25-F7)
+Someone's AirPods Max (XX-XX-XX-XX-XX-XX)
 ```
 
 ### Show current device (JSON format)
@@ -59,7 +59,7 @@ soundctl current --format json
 
 Output:
 ```json
-{"id":108,"type":"output","name":"Grayson's AirPods Max","mac_address":"90-62-3F-93-25-F7","uid":"90-62-3F-93-25-F7:output"}
+{"id":108,"type":"output","name":"Someone's AirPods Max","mac_address":"XX-XX-XX-XX-XX-XX","uid":"XX-XX-XX-XX-XX-XX:output"}
 ```
 
 ### List all output devices
@@ -89,7 +89,7 @@ soundctl set "MacBook Pro Speakers"
 ### Set device by MAC address
 
 ```bash
-soundctl set "90-62-3F-93-25-F7"
+soundctl set "XX-XX-XX-XX-XX-XX"
 ```
 
 ### Set device by ID
