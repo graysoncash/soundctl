@@ -37,7 +37,7 @@ rm -rf "${TEMP_DIR}"
 
 # Optionally update the formula automatically
 if [ "$1" = "--update" ]; then
-  TAP_PATH="../homebrew-soundctl/Formula/soundctl.rb"
+  TAP_PATH="${TAP_PATH:-../homebrew-soundctl/Formula/soundctl.rb}"
   if [ -f "$TAP_PATH" ]; then
     echo "Updating formula in tap repo..."
     sed -i '' "s|url \".*\"|url \"${TARBALL_URL}\"|" "$TAP_PATH"
