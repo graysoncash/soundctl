@@ -44,7 +44,7 @@ jobs:
         with:
           repository: graysoncash/homebrew-soundctl
           path: homebrew-soundctl
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
 
       - name: Update Homebrew formula
         env:
