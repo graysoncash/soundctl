@@ -16,7 +16,28 @@ TARBALL_URL="https://github.com/${REPO}/archive/refs/tags/v${VERSION}.tar.gz"
 TEMP_DIR=$(mktemp -d)
 
 echo "📦 Downloading release tarball..."
-curl -L -o "${TEMP_DIR}/soundctl-${VERSION}.tar.gz" "${TARBALL_URL}"
+MAX_RETRIES=30
+RETRY_DELAY=2
+ATTEMPT=1
+
+while [ $ATTEMPT -le $MAX_RETRIES ]; do
+  echo "Attempt $ATTEMPT of $MAX_RETRIES..."
+  if curl -L -f -o "${TEMP_DIR}/soundctl-${VERSION}.tar.gz" "${TARBALL_URL}"; then
+    break
+  fi
+  
+  if [ $ATTEMPT -lt $MAX_RETRIES ]; then
+    echo "⏳ Waiting ${RETRY_DELAY}s before retry..."
+    sleep $RETRY_DELAY
+  fi
+  
+  ATTEMPT=$((ATTEMPT + 1))
+done
+
+if [ $ATTEMPT -gt $MAX_RETRIES ]; then
+  echo "❌ Failed to download tarball after $MAX_RETRIES attempts"
+  exit 1
+fi
 
 echo "🔐 Calculating SHA256..."
 SHA256=$(shasum -a 256 "${TEMP_DIR}/soundctl-${VERSION}.tar.gz" | awk '{print $1}')
