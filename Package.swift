@@ -8,13 +8,15 @@ let package = Package(
         .executable(name: "soundctl", targets: ["soundctl"])
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-argument-parser", from: "1.3.0")
+        .package(url: "https://github.com/apple/swift-argument-parser", from: "1.3.0"),
+        .package(url: "https://github.com/LebJe/TOMLKit", from: "0.6.0"),
     ],
     targets: [
         .executableTarget(
             name: "soundctl",
             dependencies: [
-                .product(name: "ArgumentParser", package: "swift-argument-parser")
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "TOMLKit", package: "TOMLKit"),
             ],
             exclude: ["Info.plist"],
             linkerSettings: [

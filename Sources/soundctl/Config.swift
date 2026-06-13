@@ -1,7 +1,8 @@
 import Foundation
+import TOMLKit
 
 struct Config: Codable {
-    static let defaultConfigPath = ".config/soundctl/config.json"
+    static let defaultConfigPath = ".config/soundctl/config.toml"
 
     static var configPath: String?
 
@@ -93,8 +94,8 @@ struct Config: Codable {
         guard let configPath = configFilePath() else { return nil }
         guard FileManager.default.fileExists(atPath: configPath.path) else { return nil }
 
-        guard let data = try? Data(contentsOf: configPath) else { return nil }
-        return try? JSONDecoder().decode(Config.self, from: data)
+        guard let toml = try? String(contentsOf: configPath, encoding: .utf8) else { return nil }
+        return try? TOMLDecoder().decode(Config.self, from: toml)
     }
 
     static func loadForEditing() -> Config {
@@ -107,9 +108,8 @@ struct Config: Codable {
         }
         try FileManager.default.createDirectory(
             at: path.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try encoder.encode(self).write(to: path)
+        let toml = try TOMLEncoder().encode(self)
+        try toml.write(to: path, atomically: true, encoding: .utf8)
     }
 
     func withAliases(_ aliases: [String: Alias]) -> Config {

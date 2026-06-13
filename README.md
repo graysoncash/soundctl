@@ -127,7 +127,7 @@ This requires Bluetooth permission for your terminal. macOS normally prompts on 
 
 ### Aliases
 
-Save a short name for a device (by MAC address or name) along with the device type(s) to apply, so you don't have to type the full identifier. Aliases are stored in your config file (`~/.config/soundctl/config.json`).
+Save a short name for a device (by MAC address or name) along with the device type(s) to apply, so you don't have to type the full identifier. Aliases are stored in your config file (`~/.config/soundctl/config.toml`).
 
 ```bash
 # Save "app" for AirPods Pro, applied to both input and output
@@ -185,28 +185,22 @@ This is useful on a hotkey, e.g., to mute your Teams or Zoom input.
 
 ## Configuration
 
-You can optionally create a configuration file at `~/.config/soundctl/config.json` to filter which devices appear in listings and when cycling with the `next` command.
+You can optionally create a configuration file at `~/.config/soundctl/config.toml` to filter which devices appear in listings and when cycling with the `next` command. See [`config.example.toml`](config.example.toml) for a full example.
 
 ### Ignore Devices (Blocklist)
 
-```json
-{
-  "ignoreDevices": {
-    "names": ["Virtual Device", "Aggregate Device"],
-    "uids": ["00-00-00-00-00-00"]
-  }
-}
+```toml
+[ignoreDevices]
+names = ["Virtual Device", "Aggregate Device"]
+uids = ["00-00-00-00-00-00"]
 ```
 
 ### Include Devices (Allowlist)
 
-```json
-{
-  "includeDevices": {
-    "names": ["MacBook Pro Speakers"],
-    "uids": ["11-22-33-44-55-66"]
-  }
-}
+```toml
+[includeDevices]
+names = ["MacBook Pro Speakers"]
+uids = ["11-22-33-44-55-66"]
 ```
 
 **Filter Priority:** If `includeDevices` has any entries, only those devices will be shown (allowlist mode). Otherwise, `ignoreDevices` will be used to exclude devices (blocklist mode). Both filters support:

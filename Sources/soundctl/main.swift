@@ -5,7 +5,7 @@ import Foundation
 struct ConfigOption: ParsableArguments {
     @Option(
         name: .shortAndLong,
-        help: "Path to config file (default: ~/.config/soundctl/config.json)")
+        help: "Path to config file (default: ~/.config/soundctl/config.toml)")
     var config: String?
 
     func apply() {
