@@ -7,10 +7,24 @@ struct Config: Codable {
 
     let ignoreDevices: DeviceFilter
     let includeDevices: DeviceFilter
+    let aliases: [String: Alias]
+
+    enum CodingKeys: String, CodingKey {
+        case ignoreDevices
+        case includeDevices
+        case aliases
+    }
 
     struct DeviceFilter: Codable {
         let names: [String]
         let uids: [String]
+
+        var isEmpty: Bool { names.isEmpty && uids.isEmpty }
+
+        enum CodingKeys: String, CodingKey {
+            case names
+            case uids
+        }
 
         init(names: [String] = [], uids: [String] = []) {
             self.names = names
@@ -22,6 +36,38 @@ struct Config: Codable {
             names = try container.decodeIfPresent([String].self, forKey: .names) ?? []
             uids = try container.decodeIfPresent([String].self, forKey: .uids) ?? []
         }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            if !names.isEmpty { try container.encode(names, forKey: .names) }
+            if !uids.isEmpty { try container.encode(uids, forKey: .uids) }
+        }
+    }
+
+    struct Alias: Codable {
+        let device: String
+        let types: [AudioDeviceType]
+
+        init(device: String, types: [AudioDeviceType]) {
+            self.device = device
+            self.types = types.isEmpty ? [.output] : types
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            device = try container.decode(String.self, forKey: .device)
+            types = try container.decodeIfPresent([AudioDeviceType].self, forKey: .types) ?? [.output]
+        }
+    }
+
+    init(
+        ignoreDevices: DeviceFilter = DeviceFilter(),
+        includeDevices: DeviceFilter = DeviceFilter(),
+        aliases: [String: Alias] = [:]
+    ) {
+        self.ignoreDevices = ignoreDevices
+        self.includeDevices = includeDevices
+        self.aliases = aliases
     }
 
     init(from decoder: Decoder) throws {
@@ -32,6 +78,15 @@ struct Config: Codable {
         includeDevices =
             try container.decodeIfPresent(DeviceFilter.self, forKey: .includeDevices)
             ?? DeviceFilter()
+        aliases = try container.decodeIfPresent([String: Alias].self, forKey: .aliases) ?? [:]
+    }
+
+    // Only write populated sections so a config holding just aliases stays tidy.
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        if !ignoreDevices.isEmpty { try container.encode(ignoreDevices, forKey: .ignoreDevices) }
+        if !includeDevices.isEmpty { try container.encode(includeDevices, forKey: .includeDevices) }
+        if !aliases.isEmpty { try container.encode(aliases, forKey: .aliases) }
     }
 
     static func load() -> Config? {
@@ -40,6 +95,32 @@ struct Config: Codable {
 
         guard let data = try? Data(contentsOf: configPath) else { return nil }
         return try? JSONDecoder().decode(Config.self, from: data)
+    }
+
+    static func loadForEditing() -> Config {
+        load() ?? Config()
+    }
+
+    func save() throws {
+        guard let path = Config.configFilePath() else {
+            throw AudioError.propertyError("Could not determine config file path")
+        }
+        try FileManager.default.createDirectory(
+            at: path.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(self).write(to: path)
+    }
+
+    func withAliases(_ aliases: [String: Alias]) -> Config {
+        Config(ignoreDevices: ignoreDevices, includeDevices: includeDevices, aliases: aliases)
+    }
+
+    // Aliases are matched case-insensitively so `set APP` and `set app` agree.
+    func alias(named name: String) -> Alias? {
+        if let exact = aliases[name] { return exact }
+        let lowered = name.lowercased()
+        return aliases.first { $0.key.lowercased() == lowered }?.value
     }
 
     static func configFilePath() -> URL? {

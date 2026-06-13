@@ -43,6 +43,7 @@ soundctl <subcommand> [options]
 - **set** `<identifier>`: Set the audio device
 - **next**: Cycle to the next audio device
 - **mute** `[action]`: Control mute status
+- **alias** `add|list|remove`: Manage device aliases
 
 ### Common Options
 
@@ -123,6 +124,29 @@ Priority order: MAC address → numeric ID → name (so a device named "123" can
 If the identifier doesn't match any active audio device but does match a paired Bluetooth device (by MAC address or name) that isn't currently connected, `set` connects to it over Bluetooth, waits for it to register as an audio device, and then sets it. Use `--bluetooth-timeout <seconds>` to change how long to wait for the device to appear after connecting (default: 10).
 
 This requires Bluetooth permission for your terminal. macOS normally prompts on first use; if your terminal can't prompt (e.g., Warp), add it manually under **System Settings → Privacy & Security → Bluetooth**.
+
+### Aliases
+
+Save a short name for a device (by MAC address or name) along with the device type(s) to apply, so you don't have to type the full identifier. Aliases are stored in your config file (`~/.config/soundctl/config.json`).
+
+```bash
+# Save "app" for AirPods Pro, applied to both input and output
+soundctl alias add app "AA:BB:CC:DD:EE:FF" -t input,output
+
+# Save "apm" for AirPods Max, output only (default type is output)
+soundctl alias add apm "AirPods Max"
+
+soundctl alias list
+soundctl alias remove app
+```
+
+Then use the alias anywhere an identifier is expected:
+
+```bash
+soundctl set app   # connects (if needed) and sets it as input + output
+```
+
+When you `set` an alias, its saved types are applied. Passing `-t` overrides them for that invocation (`soundctl set app -t output` sets output only). Aliases also resolve through Bluetooth auto-connect, so `set app` will connect paired-but-disconnected AirPods first.
 
 ### Cycle to next device
 

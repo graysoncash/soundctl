@@ -6,5 +6,9 @@
   "includeDevices": {
     "names": ["MacBook Pro Speakers"],
     "uids": ["11-22-33-44-55-66"]
+  },
+  "aliases": {
+    "app": { "device": "AA:BB:CC:DD:EE:FF", "types": ["input", "output"] },
+    "apm": { "device": "AirPods Max", "types": ["output"] }
   }
 }

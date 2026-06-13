@@ -52,11 +52,13 @@ enum BluetoothConnector {
             return device
         }
 
+        // Prefer an exact name match before falling back to substring, so an
+        // ambiguous identifier doesn't connect the wrong paired device.
         let loweredName = identifier.lowercased()
-        return paired.first { device in
-            guard let name = device.name?.lowercased() else { return false }
-            return name == loweredName || name.contains(loweredName)
+        if let exact = paired.first(where: { $0.name?.lowercased() == loweredName }) {
+            return exact
         }
+        return paired.first { $0.name?.lowercased().contains(loweredName) ?? false }
     }
 
     static func connect(_ device: IOBluetoothDevice, attempts: Int = 3) throws {
