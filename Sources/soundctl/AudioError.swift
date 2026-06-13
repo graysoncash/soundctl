@@ -6,6 +6,7 @@ enum AudioError: Error, CustomStringConvertible {
     case ambiguousMatch(String, [String])
     case invalidDeviceType
     case muteNotSupported
+    case bluetoothConnectionFailed(String)
 
     var description: String {
         switch self {
@@ -21,6 +22,8 @@ enum AudioError: Error, CustomStringConvertible {
             return "Invalid device type"
         case .muteNotSupported:
             return "Mute is not supported for this device type"
+        case .bluetoothConnectionFailed(let message):
+            return message
         }
     }
 }

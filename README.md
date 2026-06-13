@@ -118,6 +118,12 @@ The `set` command is smart and auto-detects the type of identifier:
 
 Priority order: MAC address → numeric ID → name (so a device named "123" can still be matched even if there's an ID 123)
 
+### Bluetooth auto-connect
+
+If the identifier doesn't match any active audio device but does match a paired Bluetooth device (by MAC address or name) that isn't currently connected, `set` connects to it over Bluetooth, waits for it to register as an audio device, and then sets it. Use `--bluetooth-timeout <seconds>` to change how long to wait for the device to appear after connecting (default: 10).
+
+This requires Bluetooth permission for your terminal. macOS normally prompts on first use; if your terminal can't prompt (e.g., Warp), add it manually under **System Settings → Privacy & Security → Bluetooth**.
+
 ### Cycle to next device
 
 ```bash

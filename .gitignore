@@ -49,3 +49,5 @@ Sources/soundctl/Version.swift
 # Environment
 .env
 .env.local
+
+crash.log

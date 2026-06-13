@@ -15,6 +15,17 @@ let package = Package(
             name: "soundctl",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser")
+            ],
+            exclude: ["Info.plist"],
+            linkerSettings: [
+                // Embed Info.plist so the Bluetooth usage description ships in
+                // the binary (required for the permission prompt).
+                .unsafeFlags([
+                    "-Xlinker", "-sectcreate",
+                    "-Xlinker", "__TEXT",
+                    "-Xlinker", "__info_plist",
+                    "-Xlinker", "Sources/soundctl/Info.plist",
+                ])
             ]
         )
     ]

@@ -1,5 +1,6 @@
 import ArgumentParser
 import CoreAudio
+import Foundation
 
 struct ConfigOption: ParsableArguments {
     @Option(
@@ -17,9 +18,25 @@ struct SoundCtl: ParsableCommand {
         commandName: "soundctl",
         abstract: "A command-line utility to control sound devices on macOS",
         version: version,
-        subcommands: [Set.self, List.self, Current.self, Next.self, Mute.self],
+        subcommands: [
+            Set.self, List.self, Current.self, Next.self, Mute.self, AuthorizeBluetooth.self,
+        ],
         defaultSubcommand: Current.self
     )
+}
+
+/// Hidden subcommand run as a throwaway child by `ensureAccess`, so a TCC abort
+/// on first Bluetooth use can't take down the parent.
+struct AuthorizeBluetooth: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: BluetoothConnector.authorizeSubcommand,
+        abstract: "Internal: trigger the Bluetooth permission prompt",
+        shouldDisplay: false
+    )
+
+    func run() throws {
+        BluetoothConnector.runAuthorizationPrompt()
+    }
 }
 
 struct Set: ParsableCommand {
@@ -35,37 +52,85 @@ struct Set: ParsableCommand {
     @Option(name: .shortAndLong, help: "Device type (input/output/system/all)")
     var type: AudioDeviceType = .output
 
+    @Option(help: "Seconds to wait for a Bluetooth device to appear after connecting")
+    var bluetoothTimeout: Double = 10
+
     func run() throws {
         configOption.apply()
 
+        do {
+            try resolveAndSet()
+        } catch let error as AudioError {
+            guard case .deviceNotFound = error else { throw error }
+            try connectBluetoothAndRetry(originalError: error)
+        }
+    }
+
+    private func resolveAndSet() throws {
         if type == .all {
             try AudioManager.setAllDevicesByName(identifier)
             return
         }
 
+        let device = try resolveDevice()
+        try AudioManager.setDevice(device.id, type: type)
+        print("\(type.rawValue) audio device set to \"\(device.name)\"")
+    }
+
+    private func resolveDevice() throws -> AudioDevice {
         // Try MAC address format first
         if isMacAddressFormat(identifier) {
             let normalizedMac = normalizeMacAddress(identifier)
             if let device = try? AudioManager.findDevice(byUID: normalizedMac, type: type) {
-                try AudioManager.setDevice(device.id, type: type)
-                print("\(type.rawValue) audio device set to \"\(device.name)\"")
-                return
+                return device
             }
         }
 
         // Try as numeric ID
         if let deviceID = UInt32(identifier) {
             if let device = try? AudioManager.findDevice(byID: deviceID, type: type) {
-                try AudioManager.setDevice(device.id, type: type)
-                print("\(type.rawValue) audio device set to \"\(device.name)\"")
-                return
+                return device
             }
         }
 
         // Fall back to name matching
-        let device = try AudioManager.findDevice(byName: identifier, type: type)
-        try AudioManager.setDevice(device.id, type: type)
-        print("\(type.rawValue) audio device set to \"\(device.name)\"")
+        return try AudioManager.findDevice(byName: identifier, type: type)
+    }
+
+    private func connectBluetoothAndRetry(originalError: AudioError) throws {
+        guard BluetoothConnector.ensureAccess() else {
+            FileHandle.standardError.write(
+                Data(
+                    """
+                    note: skipped Bluetooth connection attempt — Bluetooth access is unavailable. \
+                    Allow your terminal under System Settings → Privacy & Security → Bluetooth \
+                    (add it with the + button if it is not listed), then retry.\n
+                    """.utf8))
+            throw originalError
+        }
+
+        guard let btDevice = BluetoothConnector.pairedDevice(matching: identifier),
+            !btDevice.isConnected()
+        else {
+            throw originalError
+        }
+
+        let btName = btDevice.name ?? identifier
+        print("\"\(btName)\" is paired but not connected; connecting via Bluetooth...")
+        try BluetoothConnector.connect(btDevice)
+
+        // The audio device registers with CoreAudio shortly after the
+        // Bluetooth link comes up; retry until it appears or we time out.
+        let deadline = Date().addingTimeInterval(bluetoothTimeout)
+        while true {
+            do {
+                try resolveAndSet()
+                return
+            } catch {
+                guard Date() < deadline else { throw error }
+                Thread.sleep(forTimeInterval: 0.5)
+            }
+        }
     }
 
     func isMacAddressFormat(_ string: String) -> Bool {
