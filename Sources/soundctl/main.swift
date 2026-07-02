@@ -20,10 +20,35 @@ struct SoundCtl: ParsableCommand {
         version: version,
         subcommands: [
             Set.self, List.self, Current.self, Next.self, Mute.self, AliasCommand.self,
-            AuthorizeBluetooth.self,
+            MonitorCommand.self, AuthorizeBluetooth.self,
         ],
         defaultSubcommand: Current.self
     )
+}
+
+/// Post a device-change notification when either the `--notify` flag or the
+/// `[behavior] notify` config setting is enabled.
+func notifyIfEnabled(flag: Bool, type: AudioDeviceType, deviceName: String) {
+    guard flag || (Config.load()?.behavior.notify ?? false) else { return }
+    Notifier.notify(title: "soundctl", body: "\(type.rawValue.capitalized): \(deviceName)")
+}
+
+/// Completion candidates for a device identifier: saved alias names plus the
+/// names of the current input and output devices.
+func deviceCompletions() -> [String] {
+    var names: [String] = []
+    if let aliases = Config.load()?.aliases { names.append(contentsOf: aliases.keys) }
+    for type in [AudioDeviceType.output, .input] {
+        if let devices = try? AudioManager.getAllDevices(type: type) {
+            names.append(contentsOf: devices.map(\.name))
+        }
+    }
+    return Array(Swift.Set(names)).sorted()
+}
+
+/// Completion candidates for an alias name.
+func aliasCompletions() -> [String] {
+    (Config.load()?.aliases ?? [:]).keys.sorted()
 }
 
 /// Parse a comma-separated `--type` value (e.g. "input,output") into a
@@ -119,7 +144,7 @@ struct AliasRemove: ParsableCommand {
 
     @OptionGroup var configOption: ConfigOption
 
-    @Argument(help: "Alias name to remove")
+    @Argument(help: "Alias name to remove", completion: .custom { _, _, _ in aliasCompletions() })
     var name: String
 
     func run() throws {
@@ -157,7 +182,9 @@ struct Set: ParsableCommand {
 
     @OptionGroup var configOption: ConfigOption
 
-    @Argument(help: "Device identifier (MAC address, CoreAudio device ID, or name)")
+    @Argument(
+        help: "Device identifier (MAC address, CoreAudio device ID, or name)",
+        completion: .custom { _, _, _ in deviceCompletions() })
     var identifier: String
 
     @Option(
@@ -167,6 +194,9 @@ struct Set: ParsableCommand {
 
     @Option(help: "Seconds to wait for a Bluetooth device to appear after connecting")
     var bluetoothTimeout: Double = 10
+
+    @Flag(name: .long, help: "Post a macOS notification when the device changes")
+    var notify: Bool = false
 
     func validate() throws {
         guard bluetoothTimeout >= 0 else {
@@ -204,12 +234,14 @@ struct Set: ParsableCommand {
     private func resolveAndSet(target: String, type: AudioDeviceType) throws {
         if type == .all {
             try AudioManager.setAllDevicesByName(target)
+            notifyIfEnabled(flag: notify, type: .all, deviceName: target)
             return
         }
 
         let device = try resolveDevice(target: target, type: type)
         try AudioManager.setDevice(device.id, type: type)
         print("\(type.rawValue) audio device set to \"\(device.name)\"")
+        notifyIfEnabled(flag: notify, type: type, deviceName: device.name)
     }
 
     private func resolveDevice(target: String, type: AudioDeviceType) throws -> AudioDevice {
@@ -353,6 +385,9 @@ struct Next: ParsableCommand {
     @Option(name: .shortAndLong, help: "Device type (input/output/system/all)")
     var type: AudioDeviceType = .output
 
+    @Flag(name: .long, help: "Post a macOS notification when the device changes")
+    var notify: Bool = false
+
     func run() throws {
         configOption.apply()
 
@@ -362,9 +397,11 @@ struct Next: ParsableCommand {
             _ = try? AudioManager.cycleNext(type: .output)
             let device = try AudioManager.cycleNext(type: .system)
             print("\(type.rawValue) audio device set to \"\(device.name)\"")
+            notifyIfEnabled(flag: notify, type: type, deviceName: device.name)
         default:
             let device = try AudioManager.cycleNext(type: type)
             print("\(type.rawValue) audio device set to \"\(device.name)\"")
+            notifyIfEnabled(flag: notify, type: type, deviceName: device.name)
         }
     }
 }
@@ -408,6 +445,27 @@ struct Mute: ParsableCommand {
             try? AudioManager.setMute(muteAction, type: .input)
             try? AudioManager.setMute(muteAction, type: .output)
         }
+    }
+}
+
+struct MonitorCommand: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "monitor",
+        abstract: "Watch for device changes and auto-switch the default device"
+    )
+
+    @OptionGroup var configOption: ConfigOption
+
+    @Option(
+        name: .shortAndLong,
+        help: "Device type(s) to watch (input/output/system/all)")
+    var type: String = "output"
+
+    func run() throws {
+        configOption.apply()
+
+        let types = try parseDeviceTypes(type)
+        try Monitor.run(types: types)
     }
 }
 

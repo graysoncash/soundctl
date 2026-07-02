@@ -63,11 +63,19 @@ enum BluetoothConnector {
 
     static func connect(_ device: IOBluetoothDevice, attempts: Int = 3) throws {
         let name = device.name ?? device.addressString ?? "unknown"
+
+        // macOS 26/27: `openConnection()` on an IOBluetoothDevice handed back by
+        // `pairedDevices()` is a silent no-op — it returns kIOReturnSuccess
+        // immediately without paging the device, so the link never comes up. A
+        // device constructed fresh from the address still connects (and raises
+        // the system's connection-consent prompt), so re-create it before paging.
+        let target = device.addressString
+            .flatMap(IOBluetoothDevice.init(addressString:)) ?? device
         var lastStatus: IOReturn = kIOReturnSuccess
 
         for attempt in 1...max(1, attempts) {
-            let status = device.openConnection()
-            logAttempt(attempt, of: attempts, status: status, connected: device.isConnected())
+            let status = target.openConnection()
+            logAttempt(attempt, of: attempts, status: status, connected: target.isConnected())
 
             // Opening the baseband link is enough; the audio profile and
             // CoreAudio registration follow asynchronously and are polled by the

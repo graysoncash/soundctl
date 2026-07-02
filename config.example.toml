@@ -13,3 +13,16 @@ types = ["input", "output"]
 [aliases.apm]
 device = "AirPods Max"
 types = ["output"]
+
+# Post a macOS notification whenever `set`/`next` change a device (the
+# `--notify` flag turns this on for a single invocation regardless).
+[behavior]
+notify = true
+
+# Priority lists for `soundctl monitor`. Each list holds device names (or MAC
+# addresses) in preference order; when the device list changes, monitor switches
+# to the first entry that is currently present. A type with no list here follows
+# whatever device of that type was just connected.
+[monitor]
+output = ["AirPods Max", "Studio Display", "MacBook Pro Speakers"]
+input = ["AirPods Max", "MacBook Pro Microphone"]

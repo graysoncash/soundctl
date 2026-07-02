@@ -24,6 +24,28 @@ link: build
 uninstall:
     sudo rm -f /usr/local/bin/soundctl
 
+# Generate shell completion scripts into ./completions
+completions: build
+    @mkdir -p completions
+    @.build/release/soundctl --generate-completion-script zsh > completions/_soundctl
+    @.build/release/soundctl --generate-completion-script bash > completions/soundctl.bash
+    @.build/release/soundctl --generate-completion-script fish > completions/soundctl.fish
+    @echo "✅ Wrote completions/ for zsh, bash, and fish"
+
+# Install the zsh completion into a directory on your fpath
+install-completions: build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if command -v brew >/dev/null 2>&1; then
+        dest="$(brew --prefix)/share/zsh/site-functions"
+    else
+        dest="${HOME}/.zsh/completions"
+    fi
+    mkdir -p "$dest"
+    .build/release/soundctl --generate-completion-script zsh > "$dest/_soundctl"
+    echo "✅ Installed zsh completion to $dest/_soundctl"
+    echo "   Ensure that directory is on your fpath, then run: compinit"
+
 # Clean the build artifacts
 clean:
     swift package clean

@@ -24,10 +24,10 @@ swift build -c release
 cp .build/release/soundctl /usr/local/bin/
 ```
 
-Or use the Makefile:
+Or use [`just`](https://github.com/casey/just):
 
 ```bash
-make install
+just install
 ```
 
 ## Usage
@@ -44,6 +44,7 @@ soundctl <subcommand> [options]
 - **next**: Cycle to the next audio device
 - **mute** `[action]`: Control mute status
 - **alias** `add|list|remove`: Manage device aliases
+- **monitor**: Watch for device changes and auto-switch the default device
 
 ### Common Options
 
@@ -178,6 +179,62 @@ soundctl mute off --type input
 
 This is useful on a hotkey, e.g., to mute your Teams or Zoom input.
 
+### Monitor mode (auto-switch)
+
+`soundctl monitor` runs in the foreground and watches for audio devices coming and going, automatically switching the default device for you. Press Ctrl-C to stop.
+
+```bash
+# Watch output devices (default)
+soundctl monitor
+
+# Watch both input and output
+soundctl monitor --type input,output
+```
+
+For each watched type, the behavior is:
+
+- **Priority list configured** (in the `[monitor]` config section): switch to the highest-ranked device that is currently present. Great for "prefer AirPods, fall back to the display, then the built-in speakers."
+- **No list for that type**: follow whatever device of that type was just connected.
+
+```toml
+[monitor]
+output = ["AirPods Max", "Studio Display", "MacBook Pro Speakers"]
+input = ["AirPods Max", "MacBook Pro Microphone"]
+```
+
+Blocklisted devices (see [Ignore Devices](#ignore-devices-blocklist)) are never chosen. Monitor mode always posts a notification when it switches.
+
+### Notifications
+
+Pass `--notify` to `set` or `next` to post a macOS notification when the device changes — handy when the command runs from a hotkey and you want visible confirmation:
+
+```bash
+soundctl set app --notify
+soundctl next --notify
+```
+
+To make notifications the default for every `set`/`next`, enable them in your config:
+
+```toml
+[behavior]
+notify = true
+```
+
+### Shell completions
+
+soundctl can generate completion scripts for zsh, bash, and fish. Completions include your saved alias names and the names of your current audio devices.
+
+```bash
+# Install the zsh completion onto your fpath
+just install-completions
+
+# Or generate scripts for all shells into ./completions
+just completions
+
+# Or generate a single script by hand
+soundctl --generate-completion-script zsh > /path/on/your/fpath/_soundctl
+```
+
 ### Understanding IDs
 
 - **id**: Numeric identifier assigned by macOS at runtime. Can change between reboots or reconnections.
@@ -185,7 +242,7 @@ This is useful on a hotkey, e.g., to mute your Teams or Zoom input.
 
 ## Configuration
 
-You can optionally create a configuration file at `~/.config/soundctl/config.toml` to filter which devices appear in listings and when cycling with the `next` command. See [`config.example.toml`](config.example.toml) for a full example.
+You can optionally create a configuration file at `~/.config/soundctl/config.toml` to filter which devices appear in listings and when cycling with the `next` command, define [monitor mode](#monitor-mode-auto-switch) priority lists, and toggle [notifications](#notifications). See [`config.example.toml`](config.example.toml) for a full example.
 
 ### Ignore Devices (Blocklist)
 
@@ -209,7 +266,7 @@ uids = ["11-22-33-44-55-66"]
 
 ## Requirements
 
-- macOS 13.0 or later
+- macOS 14.0 or later
 - Swift 5.9 or later
 
 ## License

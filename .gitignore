@@ -26,6 +26,9 @@ playground.xcworkspace
 build/
 dist/
 
+# Generated shell completions (produced by `just completions`)
+completions/
+
 # Auto-generated files
 Sources/soundctl/Version.swift
 

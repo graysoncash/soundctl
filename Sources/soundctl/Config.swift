@@ -9,11 +9,15 @@ struct Config: Codable {
     let ignoreDevices: DeviceFilter
     let includeDevices: DeviceFilter
     let aliases: [String: Alias]
+    let behavior: Behavior
+    let monitor: MonitorConfig
 
     enum CodingKeys: String, CodingKey {
         case ignoreDevices
         case includeDevices
         case aliases
+        case behavior
+        case monitor
     }
 
     struct DeviceFilter: Codable {
@@ -61,14 +65,94 @@ struct Config: Codable {
         }
     }
 
+    /// General behavior toggles.
+    struct Behavior: Codable {
+        /// Post a macOS notification when `set`/`next` change the device.
+        let notify: Bool
+
+        var isEmpty: Bool { !notify }
+
+        enum CodingKeys: String, CodingKey {
+            case notify
+        }
+
+        init(notify: Bool = false) {
+            self.notify = notify
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            notify = try container.decodeIfPresent(Bool.self, forKey: .notify) ?? false
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            if notify { try container.encode(notify, forKey: .notify) }
+        }
+    }
+
+    /// Per-type priority lists that drive `soundctl monitor`. Each list holds
+    /// device names (or MAC addresses) in preference order; monitor switches to
+    /// the first entry that is currently present.
+    struct MonitorConfig: Codable {
+        let input: [String]
+        let output: [String]
+        let system: [String]
+
+        var isEmpty: Bool { input.isEmpty && output.isEmpty && system.isEmpty }
+
+        enum CodingKeys: String, CodingKey {
+            case input
+            case output
+            case system
+        }
+
+        init(input: [String] = [], output: [String] = [], system: [String] = []) {
+            self.input = input
+            self.output = output
+            self.system = system
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            input = try container.decodeIfPresent([String].self, forKey: .input) ?? []
+            output = try container.decodeIfPresent([String].self, forKey: .output) ?? []
+            system = try container.decodeIfPresent([String].self, forKey: .system) ?? []
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            if !input.isEmpty { try container.encode(input, forKey: .input) }
+            if !output.isEmpty { try container.encode(output, forKey: .output) }
+            if !system.isEmpty { try container.encode(system, forKey: .system) }
+        }
+
+        /// The configured priority list for a type. `.all` maps to the output
+        /// list since that is the type monitor drives by default.
+        func priority(for type: AudioDeviceType) -> [String] {
+            switch type {
+            case .input:
+                return input
+            case .output, .all:
+                return output
+            case .system:
+                return system
+            }
+        }
+    }
+
     init(
         ignoreDevices: DeviceFilter = DeviceFilter(),
         includeDevices: DeviceFilter = DeviceFilter(),
-        aliases: [String: Alias] = [:]
+        aliases: [String: Alias] = [:],
+        behavior: Behavior = Behavior(),
+        monitor: MonitorConfig = MonitorConfig()
     ) {
         self.ignoreDevices = ignoreDevices
         self.includeDevices = includeDevices
         self.aliases = aliases
+        self.behavior = behavior
+        self.monitor = monitor
     }
 
     init(from decoder: Decoder) throws {
@@ -80,6 +164,9 @@ struct Config: Codable {
             try container.decodeIfPresent(DeviceFilter.self, forKey: .includeDevices)
             ?? DeviceFilter()
         aliases = try container.decodeIfPresent([String: Alias].self, forKey: .aliases) ?? [:]
+        behavior = try container.decodeIfPresent(Behavior.self, forKey: .behavior) ?? Behavior()
+        monitor =
+            try container.decodeIfPresent(MonitorConfig.self, forKey: .monitor) ?? MonitorConfig()
     }
 
     // Only write populated sections so a config holding just aliases stays tidy.
@@ -88,6 +175,8 @@ struct Config: Codable {
         if !ignoreDevices.isEmpty { try container.encode(ignoreDevices, forKey: .ignoreDevices) }
         if !includeDevices.isEmpty { try container.encode(includeDevices, forKey: .includeDevices) }
         if !aliases.isEmpty { try container.encode(aliases, forKey: .aliases) }
+        if !behavior.isEmpty { try container.encode(behavior, forKey: .behavior) }
+        if !monitor.isEmpty { try container.encode(monitor, forKey: .monitor) }
     }
 
     static func load() -> Config? {
@@ -113,7 +202,9 @@ struct Config: Codable {
     }
 
     func withAliases(_ aliases: [String: Alias]) -> Config {
-        Config(ignoreDevices: ignoreDevices, includeDevices: includeDevices, aliases: aliases)
+        Config(
+            ignoreDevices: ignoreDevices, includeDevices: includeDevices, aliases: aliases,
+            behavior: behavior, monitor: monitor)
     }
 
     // Aliases are matched case-insensitively so `set APP` and `set app` agree.
