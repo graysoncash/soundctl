@@ -21,14 +21,17 @@ brew install soundctl
 
 ```bash
 swift build -c release
-cp .build/release/soundctl /usr/local/bin/
+cp .build/release/soundctl ~/.local/bin/
 ```
 
 Or use [`just`](https://github.com/casey/just):
 
 ```bash
-just install
+just install   # copy into ~/.local/bin
+just link      # or symlink the build output instead
 ```
+
+Both check that `~/.local/bin` is on your `PATH` and offer to fix your shell config if it isn't.
 
 ## Usage
 
@@ -125,6 +128,19 @@ Priority order: MAC address → numeric ID → name (so a device named "123" can
 If the identifier doesn't match any active audio device but does match a paired Bluetooth device (by MAC address or name) that isn't currently connected, `set` connects to it over Bluetooth, waits for it to register as an audio device, and then sets it. Use `--bluetooth-timeout <seconds>` to change how long to wait for the device to appear after connecting (default: 10).
 
 This requires Bluetooth permission for your terminal. macOS normally prompts on first use; if your terminal can't prompt (e.g., Warp), add it manually under **System Settings → Privacy & Security → Bluetooth**.
+
+### Exclusive device groups
+
+Declare groups of Bluetooth devices that should never be connected at the same time. When `set` switches to a member of a group, every other connected member is disconnected from Bluetooth — useful when two headsets (say, AirPods Pro and AirPods Max) would otherwise fight over your audio. Rivals are only evicted once the new device is confirmed reachable (registered as an audio device, or its Bluetooth link freshly up), so a `set` that fails — the device is off, out of range, or the command was a misclick — never interrupts whatever is currently playing.
+
+```toml
+[exclusive]
+groups = [
+  ["AirPods Pro", "AirPods Max"],
+]
+```
+
+Entries are device names or MAC addresses and are matched against the paired-device list, so they work whether or not the device is currently connected. A device can appear in multiple groups. Enforcement requires the same Bluetooth permission as auto-connect; if access is unavailable, `set` still switches the device and prints a note that the group wasn't enforced.
 
 ### Aliases
 

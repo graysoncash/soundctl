@@ -19,6 +19,15 @@ types = ["output"]
 [behavior]
 notify = true
 
+# Groups of Bluetooth devices that must never be connected at the same time.
+# When `set` switches to a member of a group and confirms it is reachable,
+# every other connected member is disconnected from Bluetooth; a failed switch
+# leaves them alone. Entries are device names or MAC addresses.
+[exclusive]
+groups = [
+  ["AirPods Pro", "AirPods Max"],
+]
+
 # Priority lists for `soundctl monitor`. Each list holds device names (or MAC
 # addresses) in preference order; when the device list changes, monitor switches
 # to the first entry that is currently present. A type with no list here follows

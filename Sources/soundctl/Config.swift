@@ -11,6 +11,7 @@ struct Config: Codable {
     let aliases: [String: Alias]
     let behavior: Behavior
     let monitor: MonitorConfig
+    let exclusive: Exclusive
 
     enum CodingKeys: String, CodingKey {
         case ignoreDevices
@@ -18,6 +19,7 @@ struct Config: Codable {
         case aliases
         case behavior
         case monitor
+        case exclusive
     }
 
     struct DeviceFilter: Codable {
@@ -141,18 +143,49 @@ struct Config: Codable {
         }
     }
 
+    /// Groups of Bluetooth devices that must never be connected at the same
+    /// time. Once `set` confirms the target device is reachable, every other
+    /// connected member of any group it belongs to is disconnected; a failed
+    /// switch leaves them alone. Entries are device names or MAC addresses,
+    /// resolved against the paired-device list.
+    struct Exclusive: Codable {
+        let groups: [[String]]
+
+        var isEmpty: Bool { groups.isEmpty }
+
+        enum CodingKeys: String, CodingKey {
+            case groups
+        }
+
+        init(groups: [[String]] = []) {
+            self.groups = groups
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            groups = try container.decodeIfPresent([[String]].self, forKey: .groups) ?? []
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            if !groups.isEmpty { try container.encode(groups, forKey: .groups) }
+        }
+    }
+
     init(
         ignoreDevices: DeviceFilter = DeviceFilter(),
         includeDevices: DeviceFilter = DeviceFilter(),
         aliases: [String: Alias] = [:],
         behavior: Behavior = Behavior(),
-        monitor: MonitorConfig = MonitorConfig()
+        monitor: MonitorConfig = MonitorConfig(),
+        exclusive: Exclusive = Exclusive()
     ) {
         self.ignoreDevices = ignoreDevices
         self.includeDevices = includeDevices
         self.aliases = aliases
         self.behavior = behavior
         self.monitor = monitor
+        self.exclusive = exclusive
     }
 
     init(from decoder: Decoder) throws {
@@ -167,6 +200,8 @@ struct Config: Codable {
         behavior = try container.decodeIfPresent(Behavior.self, forKey: .behavior) ?? Behavior()
         monitor =
             try container.decodeIfPresent(MonitorConfig.self, forKey: .monitor) ?? MonitorConfig()
+        exclusive =
+            try container.decodeIfPresent(Exclusive.self, forKey: .exclusive) ?? Exclusive()
     }
 
     // Only write populated sections so a config holding just aliases stays tidy.
@@ -177,6 +212,7 @@ struct Config: Codable {
         if !aliases.isEmpty { try container.encode(aliases, forKey: .aliases) }
         if !behavior.isEmpty { try container.encode(behavior, forKey: .behavior) }
         if !monitor.isEmpty { try container.encode(monitor, forKey: .monitor) }
+        if !exclusive.isEmpty { try container.encode(exclusive, forKey: .exclusive) }
     }
 
     static func load() -> Config? {
@@ -204,7 +240,7 @@ struct Config: Codable {
     func withAliases(_ aliases: [String: Alias]) -> Config {
         Config(
             ignoreDevices: ignoreDevices, includeDevices: includeDevices, aliases: aliases,
-            behavior: behavior, monitor: monitor)
+            behavior: behavior, monitor: monitor, exclusive: exclusive)
     }
 
     // Aliases are matched case-insensitively so `set APP` and `set app` agree.

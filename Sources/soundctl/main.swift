@@ -225,6 +225,7 @@ struct Set: ParsableCommand {
     private func apply(target: String, type: AudioDeviceType) throws {
         do {
             try resolveAndSet(target: target, type: type)
+            disconnectExclusivePeers(target: target)
         } catch let error as AudioError {
             guard case .deviceNotFound = error else { throw error }
             try connectBluetoothAndRetry(target: target, type: type, originalError: error)
@@ -233,8 +234,7 @@ struct Set: ParsableCommand {
 
     private func resolveAndSet(target: String, type: AudioDeviceType) throws {
         if type == .all {
-            try AudioManager.setAllDevicesByName(target)
-            notifyIfEnabled(flag: notify, type: .all, deviceName: target)
+            try setAllDevices(target: target)
             return
         }
 
@@ -242,6 +242,29 @@ struct Set: ParsableCommand {
         try AudioManager.setDevice(device.id, type: type)
         print("\(type.rawValue) audio device set to \"\(device.name)\"")
         notifyIfEnabled(flag: notify, type: type, deviceName: device.name)
+    }
+
+    /// Sets the target as the input, output, and system device, resolving it
+    /// the same way single-type sets do (MAC/UID, numeric ID, then name) so
+    /// that identifiers like a MAC address work here too. Throws only when the
+    /// device could not be resolved for any concrete type.
+    private func setAllDevices(target: String) throws {
+        var resolvedName: String?
+
+        for concreteType in [AudioDeviceType.input, .output, .system] {
+            guard let device = try? resolveDevice(target: target, type: concreteType),
+                (try? AudioManager.setDevice(device.id, type: concreteType)) != nil
+            else {
+                continue
+            }
+            print("\(concreteType.rawValue) audio device set to \"\(device.name)\"")
+            resolvedName = device.name
+        }
+
+        guard let resolvedName else {
+            throw AudioError.deviceNotFound(target)
+        }
+        notifyIfEnabled(flag: notify, type: .all, deviceName: resolvedName)
     }
 
     private func resolveDevice(target: String, type: AudioDeviceType) throws -> AudioDevice {
@@ -262,6 +285,49 @@ struct Set: ParsableCommand {
 
         // Fall back to name matching
         return try AudioManager.findDevice(byName: target, type: type)
+    }
+
+    /// Enforces `[exclusive]` config groups: disconnect every other connected
+    /// member of any group the target belongs to. Callers invoke this only
+    /// once the target is confirmed — already registered with CoreAudio, or
+    /// its Bluetooth link freshly up — so a failed or misclicked switch never
+    /// interrupts the device currently playing. Both the target and group
+    /// entries are resolved against the paired-device list so names and MAC
+    /// addresses compare by address. Failures downgrade to warnings — a rival
+    /// that will not let go should not block the device switch itself.
+    private func disconnectExclusivePeers(target: String) {
+        let groups = Config.load()?.exclusive.groups ?? []
+        guard !groups.isEmpty else { return }
+
+        guard BluetoothConnector.ensureAccess() else {
+            FileHandle.standardError.write(
+                Data(
+                    "note: skipped exclusive-group enforcement — Bluetooth access is unavailable.\n"
+                        .utf8))
+            return
+        }
+
+        guard let targetDevice = BluetoothConnector.pairedDevice(matching: target),
+            let targetAddress = targetDevice.addressString
+        else { return }
+
+        for group in groups {
+            let members = group.compactMap { BluetoothConnector.pairedDevice(matching: $0) }
+            guard members.contains(where: { $0.addressString == targetAddress }) else { continue }
+
+            for member in members
+            where member.addressString != targetAddress && member.isConnected() {
+                let memberName = member.name ?? member.addressString ?? "unknown"
+                print(
+                    "Disconnecting \"\(memberName)\" — exclusive with "
+                        + "\"\(targetDevice.name ?? target)\"")
+                do {
+                    try BluetoothConnector.disconnect(member)
+                } catch {
+                    FileHandle.standardError.write(Data("warning: \(error)\n".utf8))
+                }
+            }
+        }
     }
 
     private func connectBluetoothAndRetry(
@@ -287,6 +353,10 @@ struct Set: ParsableCommand {
         let btName = btDevice.name ?? target
         print("\"\(btName)\" is paired but not connected; connecting via Bluetooth...")
         try BluetoothConnector.connect(btDevice)
+
+        // The target's link is up, so it is safe to evict exclusive-group
+        // rivals now; a failed connect above leaves them playing untouched.
+        disconnectExclusivePeers(target: target)
 
         // The audio device registers with CoreAudio shortly after the
         // Bluetooth link comes up; retry until it appears or we time out.

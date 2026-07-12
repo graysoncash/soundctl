@@ -282,32 +282,4 @@ struct AudioManager {
         print("Setting device \(currentDevice.name) to \(muteState)")
     }
 
-    static func setAllDevicesByName(_ name: String) throws {
-        var successCount = 0
-
-        if let inputDevice = try? findDevice(byName: name, type: .input) {
-            if (try? setDevice(inputDevice.id, type: .input)) != nil {
-                print("input audio device set to \"\(name)\"")
-                successCount += 1
-            }
-        }
-
-        if let outputDevice = try? findDevice(byName: name, type: .output) {
-            if (try? setDevice(outputDevice.id, type: .output)) != nil {
-                print("output audio device set to \"\(name)\"")
-                successCount += 1
-            }
-        }
-
-        if let systemDevice = try? findDevice(byName: name, type: .system) {
-            if (try? setDevice(systemDevice.id, type: .system)) != nil {
-                print("system audio device set to \"\(name)\"")
-                successCount += 1
-            }
-        }
-
-        guard successCount > 0 else {
-            throw AudioError.deviceNotFound(name)
-        }
-    }
 }

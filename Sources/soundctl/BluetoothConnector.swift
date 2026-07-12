@@ -94,6 +94,34 @@ enum BluetoothConnector {
             "Failed to connect to Bluetooth device \"\(name)\": \(describe(lastStatus))")
     }
 
+    /// Closes the baseband link to a connected device. As with `connect`, a
+    /// device handed back by `pairedDevices()` is re-created from its address
+    /// before use. The teardown completes asynchronously, so poll until the
+    /// link is actually down before returning — callers should be able to
+    /// trust the device is gone.
+    static func disconnect(_ device: IOBluetoothDevice, timeout: TimeInterval = 5) throws {
+        let name = device.name ?? device.addressString ?? "unknown"
+        let target = device.addressString
+            .flatMap(IOBluetoothDevice.init(addressString:)) ?? device
+
+        guard target.isConnected() else { return }
+
+        let status = target.closeConnection()
+        guard status == kIOReturnSuccess else {
+            throw AudioError.bluetoothConnectionFailed(
+                "Failed to disconnect Bluetooth device \"\(name)\": \(describe(status))")
+        }
+
+        let deadline = Date().addingTimeInterval(timeout)
+        while target.isConnected() {
+            guard Date() < deadline else {
+                throw AudioError.bluetoothConnectionFailed(
+                    "Bluetooth device \"\(name)\" did not disconnect within \(Int(timeout))s")
+            }
+            Thread.sleep(forTimeInterval: 0.2)
+        }
+    }
+
     private static func logAttempt(
         _ attempt: Int, of total: Int, status: IOReturn, connected: Bool
     ) {

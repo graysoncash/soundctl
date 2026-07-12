@@ -12,17 +12,51 @@ generate-version:
 build: generate-version
     swift build -c release
 
-# Install the binary to /usr/local/bin
-install: build
-    sudo cp .build/release/soundctl /usr/local/bin/
+# Copy the binary into ~/.local/bin
+install: build && _check-path
+    @mkdir -p "$HOME/.local/bin"
+    cp .build/release/soundctl "$HOME/.local/bin/"
+    @echo "✅ Installed soundctl into $HOME/.local/bin"
 
-# Symlink the built binary into /usr/local/bin
-link: build
-    sudo ln -sf "$(pwd)/.build/release/soundctl" /usr/local/bin/soundctl
+# Symlink the built binary into ~/.local/bin
+link: build && _check-path
+    @mkdir -p "$HOME/.local/bin"
+    ln -sf "$(pwd)/.build/release/soundctl" "$HOME/.local/bin/soundctl"
+    @echo "✅ Linked soundctl into $HOME/.local/bin"
 
-# Remove the binary from /usr/local/bin
-uninstall:
-    sudo rm -f /usr/local/bin/soundctl
+# Warn when ~/.local/bin is not on PATH; offer (via gum) to fix the shell config
+_check-path:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case ":$PATH:" in *":$HOME/.local/bin:"*) exit 0 ;; esac
+
+    line='export PATH="$HOME/.local/bin:$PATH"'
+    case "$(basename "${SHELL:-}")" in
+        zsh)  config="$HOME/.zshrc" ;;
+        bash) config="$HOME/.bash_profile" ;;
+        *)    config="" ;;
+    esac
+
+    # Fall back to a plain warning when gum is missing, the shell config is
+    # unknown, or there is no TTY to prompt on.
+    if ! command -v gum >/dev/null 2>&1 || [ -z "$config" ] || [ ! -t 0 ]; then
+        echo "⚠️  $HOME/.local/bin is not on your PATH. Add this to your shell config:"
+        echo "    $line"
+        exit 0
+    fi
+
+    gum style --foreground 212 "⚠️  ~/.local/bin is not on your PATH."
+    if gum confirm "Add it to $config for you?"; then
+        printf '\n%s\n' "$line" >> "$config"
+        echo "✅ Added to $config — restart your shell or run: source ${config/#$HOME/~}"
+    else
+        echo "Add this to your shell config when you're ready:"
+        echo "    $line"
+    fi
+
+# Remove the soundctl symlink from ~/.local/bin
+unlink:
+    rm -f "$HOME/.local/bin/soundctl"
 
 # Generate shell completion scripts into ./completions
 completions: build
