@@ -61,6 +61,11 @@ enum BluetoothConnector {
         return paired.first { $0.name?.lowercased().contains(loweredName) ?? false }
     }
 
+    /// True for audio/video-class devices (headphones, speakers, AirPods).
+    static func isAudioDevice(_ device: IOBluetoothDevice) -> Bool {
+        device.deviceClassMajor == kBluetoothDeviceClassMajorAudio
+    }
+
     static func connect(_ device: IOBluetoothDevice, attempts: Int = 3) throws {
         let name = device.name ?? device.addressString ?? "unknown"
 

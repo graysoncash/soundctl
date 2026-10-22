@@ -344,14 +344,27 @@ struct Set: ParsableCommand {
             throw originalError
         }
 
-        guard let btDevice = BluetoothConnector.pairedDevice(matching: target),
-            !btDevice.isConnected()
-        else {
+        guard let btDevice = BluetoothConnector.pairedDevice(matching: target) else {
             throw originalError
         }
 
         let btName = btDevice.name ?? target
-        print("\"\(btName)\" is paired but not connected; connecting via Bluetooth...")
+        if btDevice.isConnected() {
+            // Automatic switching keeps a hidden link to AirPods whose audio is
+            // owned by another device (e.g. an iPhone): the link reports
+            // connected, but no CoreAudio device is published until ownership
+            // moves. Drop that link so a fresh connection routes audio here.
+            // Limited to audio-class devices so a stray match never bounces a
+            // keyboard, controller, or another Mac.
+            guard BluetoothConnector.isAudioDevice(btDevice) else {
+                throw originalError
+            }
+            print(
+                "\"\(btName)\" is connected but not available for audio "
+                    + "(likely in use on another device); dropping that link first...")
+            try BluetoothConnector.disconnect(btDevice)
+        }
+        print("Connecting \"\(btName)\" via Bluetooth...")
         try BluetoothConnector.connect(btDevice)
 
         // The target's link is up, so it is safe to evict exclusive-group
